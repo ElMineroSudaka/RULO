@@ -178,7 +178,7 @@ with st.sidebar:
     volumen_usd = st.number_input(
         "Volumen a operar (USD)",
         min_value=1.0,
-        value=VOLUMEN_MINIMO_DEFAULT,
+        value=float(VOLUMEN_MINIMO_DEFAULT),
         step=10.0,
         help="Cantidad de dólares oficiales a comprar"
     )
