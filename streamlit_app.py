@@ -249,6 +249,10 @@ with st.sidebar:
     st.markdown("[Ver tutorial del Rulo en YouTube](https://www.youtube.com/watch?v=HZMvzT_Pzrk)")
     st.caption("https://www.youtube.com/watch?v=HZMvzT_Pzrk")
     
+    st.markdown("**El Minero Sudaka** - Dólar Matrimonio")
+    st.markdown("[Ver canal El Minero Sudaka](https://www.youtube.com/c/ElMineroSudaka)")
+    st.caption("https://www.youtube.com/c/ElMineroSudaka")
+    
     st.markdown("---")
     
     st.markdown("### 🎁 Referidos con Descuentos")
@@ -297,7 +301,7 @@ st.warning(
     
     📺 Para más información sobre esta estrategia:
     - [El Minero Sudaka](https://www.youtube.com/c/ElMineroSudaka) - Explicación detallada del dólar matrimonio
-    - [Rulo](https://www.youtube.com/@rulo_ok) - Mi canal con más estrategias de arbitraje
+    - [Tutorial del Rulo](https://www.youtube.com/watch?v=HZMvzT_Pzrk) - Guía de uso de esta aplicación
     """,
     icon="💑"
 )
