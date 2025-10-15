@@ -281,8 +281,9 @@ st.warning(
     La estrategia recomendada es **"Dólar Matrimonio"**: una persona compra dólar oficial y otra compra MEP, 
     luego intercambian entre sí para acceder a ambos mercados y maximizar oportunidades.
     
-    📺 Para más información sobre esta estrategia, busca el video explicativo en el canal de YouTube 
-    **"El Minero Sudaka"** donde se explica paso a paso cómo implementar el dólar matrimonio.
+    📺 Para más información sobre esta estrategia:
+    - [El Minero Sudaka](https://www.youtube.com/c/ElMineroSudaka) - Explicación detallada del dólar matrimonio
+    - [Rulo](https://www.youtube.com/@rulo_ok) - Mi canal con más estrategias de arbitraje
     """,
     icon="💑"
 )
@@ -488,7 +489,7 @@ with st.spinner('Obteniendo cotizaciones...'):
     # Recomendación final
     st.markdown("---")
     
-    if resultado_mep and resultado_mep['viable'] and mejor_crypto:
+    if resultado_mep and resultado_mep['viable'] and mejor_crypto is not None:
         if resultado_mep['ganancia_usd'] > mejor_crypto['Ganancia USD']:
             diferencia = resultado_mep['ganancia_usd'] - mejor_crypto['Ganancia USD']
             st.success(
@@ -523,7 +524,7 @@ with st.spinner('Obteniendo cotizaciones...'):
             La estrategia **Oficial → MEP** es rentable mientras que ningún exchange crypto lo es con el volumen actual.
             """
         )
-    elif mejor_crypto:
+    elif mejor_crypto is not None:
         st.success(
             f"""
             ### 🎯 RECOMENDACIÓN: Estrategia Crypto
@@ -729,3 +730,5 @@ with st.spinner('Obteniendo cotizaciones...'):
 
 st.markdown("---")
 st.caption(f"Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+
