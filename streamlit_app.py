@@ -50,7 +50,7 @@ EXCHANGES = [
 # --- CONSTANTES ---
 COMISION_PORCENTAJE = 0.03  # 3%
 COMISION_ENVIO_USDT = 1  # 1 USDT
-VOLUMEN_MINIMO_DEFAULT = 100  # USD por defecto
+VOLUMEN_MINIMO_DEFAULT = 1000  # USD por defecto
 
 # --- CACHING Y CARGA DE DATOS ---
 @st.cache_data(ttl=60)  # Cache por 1 minuto
