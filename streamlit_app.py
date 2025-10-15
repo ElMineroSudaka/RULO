@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import requests
@@ -49,9 +48,9 @@ EXCHANGES = [
 ]
 
 # --- CONSTANTES ---
-COMISION_PORCENTAJE = 0.03  # 3%
+COMISION_PORCENTAJE = 0.01  # 1%
 COMISION_ENVIO_USDT = 1  # 1 USDT
-VOLUMEN_MINIMO_DEFAULT = 100  # USD por defecto
+VOLUMEN_MINIMO_DEFAULT = 1000  # USD por defecto
 
 # --- CACHING Y CARGA DE DATOS ---
 @st.cache_data(ttl=60)  # Cache por 1 minuto
@@ -237,20 +236,6 @@ with st.sidebar:
         )
     
     st.markdown("---")
-    st.subheader("🔄 Exchanges a Consultar")
-    
-    seleccionar_todos = st.checkbox("Seleccionar todos", value=True)
-    
-    if seleccionar_todos:
-        exchanges_seleccionados = EXCHANGES
-    else:
-        exchanges_seleccionados = st.multiselect(
-            "Selecciona exchanges",
-            options=EXCHANGES,
-            default=["binancep2p", "ripio", "lemoncash", "buenbit"]
-        )
-    
-    st.markdown("---")
     if st.button("🔄 Actualizar Datos", type="primary", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
@@ -261,8 +246,8 @@ with st.sidebar:
     st.subheader("📚 Recursos")
     
     st.markdown("### 🎥 TUTORIAL DE USO")
-    st.markdown("[Ver tutorial en YouTube](https://www.youtube.com/@rulo_ok)")
-    st.caption("https://www.youtube.com/@rulo_ok")
+    st.markdown("[Ver canal El Minero Sudaka](https://www.youtube.com/c/ElMineroSudaka)")
+    st.caption("https://www.youtube.com/c/ElMineroSudaka")
     
     st.markdown("---")
     
@@ -420,6 +405,9 @@ with st.spinner('Obteniendo cotizaciones...'):
     # Obtener precios crypto
     st.header("💎 Estrategia 1: Oficial → Crypto (Con comisiones)")
     st.caption("Comparación con exchanges crypto considerando comisiones de transferencia y exchange")
+    
+    # Usar todos los exchanges por defecto
+    exchanges_seleccionados = EXCHANGES
     
     if not exchanges_seleccionados:
         st.warning("Por favor, selecciona al menos un exchange en la barra lateral.")
