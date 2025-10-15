@@ -246,8 +246,8 @@ with st.sidebar:
     st.subheader("📚 Recursos")
     
     st.markdown("### 🎥 TUTORIAL DE USO")
-    st.markdown("[Ver canal El Minero Sudaka](https://www.youtube.com/c/ElMineroSudaka)")
-    st.caption("https://www.youtube.com/c/ElMineroSudaka")
+    st.markdown("[Ver tutorial del Rulo en YouTube](https://www.youtube.com/watch?v=HZMvzT_Pzrk)")
+    st.caption("https://www.youtube.com/watch?v=HZMvzT_Pzrk")
     
     st.markdown("---")
     
