@@ -299,24 +299,24 @@ with st.spinner('Obteniendo cotizaciones...'):
         st.error("No se pudo obtener ninguna cotización. Por favor, intenta nuevamente.")
         st.stop()
     
-    # Extraer datos del dólar oficial
+    # Extraer datos del dólar oficial (Usuario compra al precio de VENTA del broker)
     if dolar_data:
-        dolar_compra = dolar_data['compra']
-        dolar_venta = dolar_data['venta']
+        dolar_compra_usuario = dolar_data['venta']  # El usuario compra al precio de venta del broker
+        dolar_venta_broker = dolar_data['compra']
         fecha_actualizacion_oficial = datetime.fromisoformat(dolar_data['fechaActualizacion'].replace('Z', '+00:00'))
     else:
-        dolar_compra = None
-        dolar_venta = None
+        dolar_compra_usuario = None
+        dolar_venta_broker = None
         fecha_actualizacion_oficial = None
     
-    # Extraer datos del MEP
+    # Extraer datos del MEP (Usuario vende al precio de COMPRA del broker)
     if mep_data:
-        mep_compra = mep_data['compra']
-        mep_venta = mep_data['venta']
+        mep_compra_broker = mep_data['compra']  # Precio al que el broker compra (el usuario vende)
+        mep_venta_usuario = mep_data['venta']
         fecha_actualizacion_mep = datetime.fromisoformat(mep_data['fechaActualizacion'].replace('Z', '+00:00'))
     else:
-        mep_compra = None
-        mep_venta = None
+        mep_compra_broker = None
+        mep_venta_usuario = None
         fecha_actualizacion_mep = None
     
     # Mostrar cotizaciones
@@ -326,39 +326,43 @@ with st.spinner('Obteniendo cotizaciones...'):
     
     with col1:
         st.subheader("💵 Dólar Oficial")
-        if dolar_compra:
+        if dolar_compra_usuario:
             subcol1, subcol2 = st.columns(2)
             with subcol1:
-                st.metric("Compra", f"${dolar_compra:,.2f}")
+                st.metric("Compras a", f"${dolar_compra_usuario:,.2f}")
+                st.caption("(Precio venta del broker)")
             with subcol2:
-                st.metric("Venta", f"${dolar_venta:,.2f}")
+                st.metric("Vendes a", f"${dolar_venta_broker:,.2f}")
+                st.caption("(Precio compra del broker)")
             st.caption(f"🕐 Actualizado: {fecha_actualizacion_oficial.strftime('%H:%M:%S')}")
         else:
             st.error("No disponible")
     
     with col2:
         st.subheader("📈 Dólar MEP")
-        if mep_compra:
+        if mep_venta_usuario:
             subcol1, subcol2 = st.columns(2)
             with subcol1:
-                st.metric("Compra", f"${mep_compra:,.2f}")
+                st.metric("Compras a", f"${mep_venta_usuario:,.2f}")
+                st.caption("(Precio venta del broker)")
             with subcol2:
-                st.metric("Venta", f"${mep_venta:,.2f}")
+                st.metric("Vendes a", f"${mep_compra_broker:,.2f}")
+                st.caption("(Precio compra del broker)")
             st.caption(f"🕐 Actualizado: {fecha_actualizacion_mep.strftime('%H:%M:%S')}")
         else:
             st.error("No disponible")
     
     # Comparación y cálculo de arbitraje MEP
-    if dolar_compra and mep_venta:
+    if dolar_compra_usuario and mep_compra_broker:
         st.markdown("---")
         st.subheader("📊 Estrategia 2: Oficial → MEP (Sin comisiones crypto)")
         
-        resultado_mep = calcular_arbitraje_mep(dolar_compra, mep_venta, volumen_usd)
+        resultado_mep = calcular_arbitraje_mep(dolar_compra_usuario, mep_compra_broker, volumen_usd)
         
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            spread_mep = mep_venta - dolar_compra
-            spread_pct = (spread_mep / dolar_compra) * 100
+            spread_mep = mep_compra_broker - dolar_compra_usuario
+            spread_pct = (spread_mep / dolar_compra_usuario) * 100
             st.metric("Spread MEP", f"${spread_mep:,.2f}", f"{spread_pct:+.2f}%")
         with col2:
             st.metric("Ganancia ARS", f"${resultado_mep['ganancia_ars']:,.2f}")
@@ -374,8 +378,8 @@ with st.spinner('Obteniendo cotizaciones...'):
         
         with st.expander("Ver detalle de operación Oficial → MEP"):
             st.markdown(f"""
-            1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra:,.2f} = **${resultado_mep['costo_inicial_ars']:,.2f} ARS**
-            2. 📈 **Vender en MEP**: ${volumen_usd:,.2f} USD × ${mep_venta:,.2f} = **${resultado_mep['ingresos_ars']:,.2f} ARS**
+            1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra_usuario:,.2f} = **${resultado_mep['costo_inicial_ars']:,.2f} ARS**
+            2. 📈 **Vender en MEP**: ${volumen_usd:,.2f} USD × ${mep_compra_broker:,.2f} = **${resultado_mep['ingresos_ars']:,.2f} ARS**
             3. 📊 **Resultado final**: **${resultado_mep['ganancia_ars']:,.2f} ARS** (${resultado_mep['ganancia_usd']:.2f} USD)
             
             ✨ **Sin comisiones de transferencia ni exchange**
@@ -403,9 +407,9 @@ with st.spinner('Obteniendo cotizaciones...'):
             crypto_venta = crypto_data['totalBid']  # Precio al que vendemos USDT
             
             # Calcular arbitraje con OFICIAL → CRYPTO
-            if dolar_compra:
+            if dolar_compra_usuario:
                 resultado_crypto = calcular_arbitraje(
-                    dolar_compra, 
+                    dolar_compra_usuario, 
                     crypto_venta, 
                     volumen_usd,
                     comision_pct,
@@ -413,7 +417,7 @@ with st.spinner('Obteniendo cotizaciones...'):
                 )
                 
                 vol_min_crypto = calcular_volumen_minimo(
-                    dolar_compra,
+                    dolar_compra_usuario,
                     crypto_venta,
                     comision_pct,
                     comision_usdt
@@ -422,7 +426,7 @@ with st.spinner('Obteniendo cotizaciones...'):
                 resultados_crypto.append({
                     'Exchange': exchange.upper(),
                     'Precio USDT': crypto_venta,
-                    'Spread vs Oficial (%)': ((crypto_venta - dolar_compra) / dolar_compra) * 100,
+                    'Spread vs Oficial (%)': ((crypto_venta - dolar_compra_usuario) / dolar_compra_usuario) * 100,
                     'Ganancia ARS': resultado_crypto['ganancia_ars'],
                     'Ganancia USD': resultado_crypto['ganancia_usd'],
                     'ROI (%)': resultado_crypto['roi_porcentaje'],
@@ -450,7 +454,9 @@ with st.spinner('Obteniendo cotizaciones...'):
     # --- COMPARACIÓN PRINCIPAL ---
     st.header("🏆 ¿Qué conviene más?")
     
-    mejor_crypto = df_crypto[df_crypto['Viable']].iloc[0] if not df_crypto[df_crypto['Viable']].empty else None
+    mejor_crypto = None
+    if not df_crypto[df_crypto['Viable']].empty:
+        mejor_crypto = df_crypto[df_crypto['Viable']].iloc[0]
     
     col1, col2 = st.columns(2)
     
@@ -470,7 +476,7 @@ with st.spinner('Obteniendo cotizaciones...'):
     with col2:
         st.subheader("💎 Mejor Estrategia Crypto")
         st.info("Comprar Oficial → Vender USDT")
-        if mejor_crypto:
+        if mejor_crypto is not None:
             st.success(f"✅ {mejor_crypto['Exchange']}")
             st.metric("Ganancia", f"${mejor_crypto['Ganancia USD']:.2f} USD", f"{mejor_crypto['ROI (%)']:.2f}% ROI")
             st.metric("En ARS", f"${mejor_crypto['Ganancia ARS']:,.2f}")
@@ -567,7 +573,7 @@ with st.spinner('Obteniendo cotizaciones...'):
                 detalles = row['Detalles']
                 st.markdown(f"""
                 **Detalle de la Operación:**
-                1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra:,.2f} = **${detalles['costo_inicial_ars']:,.2f} ARS**
+                1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra_usuario:,.2f} = **${detalles['costo_inicial_ars']:,.2f} ARS**
                 2. 🔄 **Transferir a USDT**: ${volumen_usd:,.2f} USDT - ${comision_usdt} USDT (comisión) = **{detalles['usdt_netos']:.2f} USDT**
                 3. 💎 **Vender USDT**: {detalles['usdt_netos']:.2f} USDT × ${row['Precio USDT']:,.2f} = **${detalles['ingresos_brutos_ars']:,.2f} ARS**
                 4. 💸 **Comisión exchange** ({comision_pct*100:.1f}%): **${detalles['comision_ars']:,.2f} ARS**
