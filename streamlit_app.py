@@ -48,7 +48,7 @@ EXCHANGES = [
 ]
 
 # --- CONSTANTES ---
-COMISION_PORCENTAJE = 0.01  # 1%
+COMISION_PORCENTAJE = 0.025  # 2.5% (subieron las comisiones crypto)
 COMISION_ENVIO_USDT = 1  # 1 USDT
 VOLUMEN_MINIMO_DEFAULT = 1000  # USD por defecto
 
