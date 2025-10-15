@@ -170,6 +170,35 @@ def calcular_volumen_minimo(dolar_compra, crypto_venta, comision_pct, comision_u
     
     return max(volumen_min, 0)
 
+def calcular_arbitraje_mep(dolar_oficial_compra, mep_venta, volumen_usd):
+    """
+    Calcula el resultado de vender dólar oficial en el mercado MEP.
+    
+    Flujo:
+    1. Comprar USD en oficial con ARS
+    2. Vender USD en MEP por ARS
+    3. La diferencia es la ganancia/pérdida (sin comisiones de crypto)
+    """
+    # Costo inicial en ARS para comprar USD oficiales
+    costo_inicial_ars = volumen_usd * dolar_oficial_compra
+    
+    # Ingresos por vender en MEP
+    ingresos_ars = volumen_usd * mep_venta
+    
+    # Ganancia/Pérdida
+    ganancia_ars = ingresos_ars - costo_inicial_ars
+    ganancia_usd = ganancia_ars / dolar_oficial_compra if dolar_oficial_compra > 0 else 0
+    roi_porcentaje = (ganancia_ars / costo_inicial_ars) * 100 if costo_inicial_ars > 0 else 0
+    
+    return {
+        'costo_inicial_ars': costo_inicial_ars,
+        'ingresos_ars': ingresos_ars,
+        'ganancia_ars': ganancia_ars,
+        'ganancia_usd': ganancia_usd,
+        'roi_porcentaje': roi_porcentaje,
+        'viable': ganancia_ars > 0
+    }
+
 # --- INTERFAZ DE USUARIO (SIDEBAR) ---
 with st.sidebar:
     st.header("⚙️ Configuración")
@@ -226,15 +255,20 @@ with st.sidebar:
         st.rerun()
 
 # --- CUERPO PRINCIPAL ---
-st.title("💱 Arbitraje Dólar Oficial/MEP vs Crypto")
+st.title("💱 Arbitraje: Dólar Oficial → Crypto vs MEP")
 st.markdown(
     """
-    Esta herramienta analiza la oportunidad de arbitraje entre:
-    - **Comprar** dólares en el mercado oficial
-    - **Comprar** dólares MEP (Mercado Electrónico de Pagos)
-    - **Vender** USDT en exchanges crypto
+    Esta herramienta compara dos estrategias de arbitraje con dólar oficial:
     
-    Considera comisiones de transferencia y porcentuales para determinar la rentabilidad real.
+    **Estrategia 1: Oficial → Crypto (USDT)**
+    - Comprar USD oficiales
+    - Convertir a USDT y vender en exchanges crypto
+    - ⚠️ Incluye comisiones de transferencia y exchange
+    
+    **Estrategia 2: Oficial → MEP**
+    - Comprar USD oficiales
+    - Vender en el mercado MEP
+    - ✅ Sin comisiones de crypto (solo spread MEP)
     """
 )
 
@@ -245,7 +279,7 @@ st.warning(
     Una misma persona **NO puede operar dólar oficial y MEP simultáneamente** por restricciones del BCRA.
     
     La estrategia recomendada es **"Dólar Matrimonio"**: una persona compra dólar oficial y otra compra MEP, 
-    luego intercambian entre sí para acceder a ambos mercados.
+    luego intercambian entre sí para acceder a ambos mercados y maximizar oportunidades.
     
     📺 Para más información sobre esta estrategia, busca el video explicativo en el canal de YouTube 
     **"El Minero Sudaka"** donde se explica paso a paso cómo implementar el dólar matrimonio.
@@ -293,46 +327,71 @@ with st.spinner('Obteniendo cotizaciones...'):
     with col1:
         st.subheader("💵 Dólar Oficial")
         if dolar_compra:
-            subcol1, subcol2, subcol3 = st.columns(3)
+            subcol1, subcol2 = st.columns(2)
             with subcol1:
                 st.metric("Compra", f"${dolar_compra:,.2f}")
             with subcol2:
                 st.metric("Venta", f"${dolar_venta:,.2f}")
-            with subcol3:
-                st.metric("🕐 Act.", fecha_actualizacion_oficial.strftime("%H:%M"))
+            st.caption(f"🕐 Actualizado: {fecha_actualizacion_oficial.strftime('%H:%M:%S')}")
         else:
             st.error("No disponible")
     
     with col2:
         st.subheader("📈 Dólar MEP")
         if mep_compra:
-            subcol1, subcol2, subcol3 = st.columns(3)
+            subcol1, subcol2 = st.columns(2)
             with subcol1:
                 st.metric("Compra", f"${mep_compra:,.2f}")
             with subcol2:
                 st.metric("Venta", f"${mep_venta:,.2f}")
-            with subcol3:
-                st.metric("🕐 Act.", fecha_actualizacion_mep.strftime("%H:%M"))
+            st.caption(f"🕐 Actualizado: {fecha_actualizacion_mep.strftime('%H:%M:%S')}")
         else:
             st.error("No disponible")
     
-    # Comparación entre oficial y MEP
-    if dolar_compra and mep_compra:
-        diferencia = mep_compra - dolar_compra
-        diferencia_pct = (diferencia / dolar_compra) * 100
-        st.info(f"📊 **Diferencia MEP vs Oficial:** ${diferencia:,.2f} ARS ({diferencia_pct:+.2f}%)")
+    # Comparación y cálculo de arbitraje MEP
+    if dolar_compra and mep_venta:
+        st.markdown("---")
+        st.subheader("📊 Estrategia 2: Oficial → MEP (Sin comisiones crypto)")
+        
+        resultado_mep = calcular_arbitraje_mep(dolar_compra, mep_venta, volumen_usd)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            spread_mep = mep_venta - dolar_compra
+            spread_pct = (spread_mep / dolar_compra) * 100
+            st.metric("Spread MEP", f"${spread_mep:,.2f}", f"{spread_pct:+.2f}%")
+        with col2:
+            st.metric("Ganancia ARS", f"${resultado_mep['ganancia_ars']:,.2f}")
+        with col3:
+            st.metric("Ganancia USD", f"${resultado_mep['ganancia_usd']:.2f}")
+        with col4:
+            st.metric("ROI", f"{resultado_mep['roi_porcentaje']:.2f}%")
+        
+        if resultado_mep['viable']:
+            st.success("✅ Operación rentable: Comprar oficial y vender en MEP genera ganancia")
+        else:
+            st.error("❌ Operación NO rentable: El MEP está por debajo del oficial")
+        
+        with st.expander("Ver detalle de operación Oficial → MEP"):
+            st.markdown(f"""
+            1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra:,.2f} = **${resultado_mep['costo_inicial_ars']:,.2f} ARS**
+            2. 📈 **Vender en MEP**: ${volumen_usd:,.2f} USD × ${mep_venta:,.2f} = **${resultado_mep['ingresos_ars']:,.2f} ARS**
+            3. 📊 **Resultado final**: **${resultado_mep['ganancia_ars']:,.2f} ARS** (${resultado_mep['ganancia_usd']:.2f} USD)
+            
+            ✨ **Sin comisiones de transferencia ni exchange**
+            """)
     
     st.markdown("---")
     
     # Obtener precios crypto
-    st.header("💎 Cotizaciones Crypto")
+    st.header("💎 Estrategia 1: Oficial → Crypto (Con comisiones)")
+    st.caption("Comparación con exchanges crypto considerando comisiones de transferencia y exchange")
     
     if not exchanges_seleccionados:
         st.warning("Por favor, selecciona al menos un exchange en la barra lateral.")
         st.stop()
     
-    resultados_oficial = []
-    resultados_mep = []
+    resultados_crypto = []
     progress_bar = st.progress(0)
     status_text = st.empty()
     
@@ -343,9 +402,9 @@ with st.spinner('Obteniendo cotizaciones...'):
         if crypto_data and 'totalBid' in crypto_data:
             crypto_venta = crypto_data['totalBid']  # Precio al que vendemos USDT
             
-            # Calcular arbitraje con OFICIAL
+            # Calcular arbitraje con OFICIAL → CRYPTO
             if dolar_compra:
-                resultado_oficial = calcular_arbitraje(
+                resultado_crypto = calcular_arbitraje(
                     dolar_compra, 
                     crypto_venta, 
                     volumen_usd,
@@ -353,52 +412,23 @@ with st.spinner('Obteniendo cotizaciones...'):
                     comision_usdt
                 )
                 
-                vol_min_oficial = calcular_volumen_minimo(
+                vol_min_crypto = calcular_volumen_minimo(
                     dolar_compra,
                     crypto_venta,
                     comision_pct,
                     comision_usdt
                 )
                 
-                resultados_oficial.append({
+                resultados_crypto.append({
                     'Exchange': exchange.upper(),
                     'Precio USDT': crypto_venta,
                     'Spread vs Oficial (%)': ((crypto_venta - dolar_compra) / dolar_compra) * 100,
-                    'Ganancia ARS': resultado_oficial['ganancia_ars'],
-                    'Ganancia USD': resultado_oficial['ganancia_usd'],
-                    'ROI (%)': resultado_oficial['roi_porcentaje'],
-                    'Viable': resultado_oficial['viable'],
-                    'Vol. Mínimo (USD)': vol_min_oficial,
-                    'Detalles': resultado_oficial
-                })
-            
-            # Calcular arbitraje con MEP
-            if mep_compra:
-                resultado_mep = calcular_arbitraje(
-                    mep_compra, 
-                    crypto_venta, 
-                    volumen_usd,
-                    comision_pct,
-                    comision_usdt
-                )
-                
-                vol_min_mep = calcular_volumen_minimo(
-                    mep_compra,
-                    crypto_venta,
-                    comision_pct,
-                    comision_usdt
-                )
-                
-                resultados_mep.append({
-                    'Exchange': exchange.upper(),
-                    'Precio USDT': crypto_venta,
-                    'Spread vs MEP (%)': ((crypto_venta - mep_compra) / mep_compra) * 100,
-                    'Ganancia ARS': resultado_mep['ganancia_ars'],
-                    'Ganancia USD': resultado_mep['ganancia_usd'],
-                    'ROI (%)': resultado_mep['roi_porcentaje'],
-                    'Viable': resultado_mep['viable'],
-                    'Vol. Mínimo (USD)': vol_min_mep,
-                    'Detalles': resultado_mep
+                    'Ganancia ARS': resultado_crypto['ganancia_ars'],
+                    'Ganancia USD': resultado_crypto['ganancia_usd'],
+                    'ROI (%)': resultado_crypto['roi_porcentaje'],
+                    'Viable': resultado_crypto['viable'],
+                    'Vol. Mínimo (USD)': vol_min_crypto,
+                    'Detalles': resultado_crypto
                 })
         
         progress_bar.progress((idx + 1) / len(exchanges_seleccionados))
@@ -406,303 +436,227 @@ with st.spinner('Obteniendo cotizaciones...'):
     progress_bar.empty()
     status_text.empty()
     
-    if not resultados_oficial and not resultados_mep:
+    if not resultados_crypto:
         st.error("No se pudieron obtener cotizaciones de ningún exchange. Por favor, verifica tu conexión.")
         st.stop()
     
-    # Crear DataFrames
-    df_oficial = pd.DataFrame(resultados_oficial).sort_values('Ganancia ARS', ascending=False) if resultados_oficial else None
-    df_mep = pd.DataFrame(resultados_mep).sort_values('Ganancia ARS', ascending=False) if resultados_mep else None
+    # Crear DataFrame
+    df_crypto = pd.DataFrame(resultados_crypto).sort_values('Ganancia ARS', ascending=False) if resultados_crypto else None
     
-    # --- TABS PARA OFICIAL Y MEP ---
-    if df_oficial is not None and df_mep is not None:
-        tab1, tab2, tab3 = st.tabs(["🏆 Comparación", "💵 Dólar Oficial", "📈 Dólar MEP"])
-    elif df_oficial is not None:
-        tab1, tab2 = st.tabs(["💵 Dólar Oficial", "📊 Detalles"])
-        tab3 = None
-    elif df_mep is not None:
-        tab1, tab2 = st.tabs(["📈 Dólar MEP", "📊 Detalles"])
-        tab3 = None
-    else:
+    if df_crypto is None:
         st.error("No hay datos disponibles")
         st.stop()
     
-    # --- TAB COMPARACIÓN ---
-    if df_oficial is not None and df_mep is not None:
-        with tab1:
-            st.header("🆚 ¿Qué conviene más: Oficial o MEP?")
-            
-            # Mejor oportunidad de cada uno
-            mejor_oficial = df_oficial.iloc[0] if not df_oficial.empty else None
-            mejor_mep = df_mep.iloc[0] if not df_mep.empty else None
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.subheader("💵 Mejor con Oficial")
-                if mejor_oficial is not None and mejor_oficial['Viable']:
-                    st.success(f"**{mejor_oficial['Exchange']}**")
-                    st.metric("Ganancia", f"${mejor_oficial['Ganancia USD']:.2f} USD", f"{mejor_oficial['ROI (%)']:.2f}% ROI")
-                    st.metric("En ARS", f"${mejor_oficial['Ganancia ARS']:,.2f}")
-                else:
-                    st.error("No hay oportunidades viables")
-            
-            with col2:
-                st.subheader("📈 Mejor con MEP")
-                if mejor_mep is not None and mejor_mep['Viable']:
-                    st.success(f"**{mejor_mep['Exchange']}**")
-                    st.metric("Ganancia", f"${mejor_mep['Ganancia USD']:.2f} USD", f"{mejor_mep['ROI (%)']:.2f}% ROI")
-                    st.metric("En ARS", f"${mejor_mep['Ganancia ARS']:,.2f}")
-                else:
-                    st.error("No hay oportunidades viables")
-            
-            # Comparación directa
-            st.markdown("---")
-            st.subheader("📊 Comparación Top 5")
-            
-            # Tabla comparativa
-            top_oficial = df_oficial[df_oficial['Viable']].head(5)
-            top_mep = df_mep[df_mep['Viable']].head(5)
-            
-            if not top_oficial.empty or not top_mep.empty:
-                # Gráfico comparativo
-                fig_comp = go.Figure()
-                
-                if not top_oficial.empty:
-                    fig_comp.add_trace(go.Bar(
-                        name='Dólar Oficial',
-                        x=top_oficial['Exchange'],
-                        y=top_oficial['Ganancia USD'],
-                        marker_color='lightblue',
-                        text=[f"${val:.2f}" for val in top_oficial['Ganancia USD']],
-                        textposition='outside'
-                    ))
-                
-                if not top_mep.empty:
-                    fig_comp.add_trace(go.Bar(
-                        name='Dólar MEP',
-                        x=top_mep['Exchange'],
-                        y=top_mep['Ganancia USD'],
-                        marker_color='lightgreen',
-                        text=[f"${val:.2f}" for val in top_mep['Ganancia USD']],
-                        textposition='outside'
-                    ))
-                
-                fig_comp.update_layout(
-                    template='plotly_dark',
-                    title='Top 5 Exchanges: Oficial vs MEP',
-                    xaxis_title='Exchange',
-                    yaxis_title='Ganancia (USD)',
-                    barmode='group',
-                    height=500
-                )
-                
-                st.plotly_chart(fig_comp, use_container_width=True)
-                
-                # Recomendación
-                if mejor_oficial and mejor_mep:
-                    if mejor_oficial['Ganancia USD'] > mejor_mep['Ganancia USD']:
-                        diferencia = mejor_oficial['Ganancia USD'] - mejor_mep['Ganancia USD']
-                        st.success(
-                            f"✅ **Recomendación:** El dólar **OFICIAL** es más rentable por **${diferencia:.2f} USD** más de ganancia "
-                            f"en el mejor exchange ({mejor_oficial['Exchange']})"
-                        )
-                    else:
-                        diferencia = mejor_mep['Ganancia USD'] - mejor_oficial['Ganancia USD']
-                        st.success(
-                            f"✅ **Recomendación:** El dólar **MEP** es más rentable por **${diferencia:.2f} USD** más de ganancia "
-                            f"en el mejor exchange ({mejor_mep['Exchange']})"
-                        )
-            else:
-                st.warning("No hay oportunidades viables con el volumen actual para comparar.")
+    # --- COMPARACIÓN PRINCIPAL ---
+    st.header("🏆 ¿Qué conviene más?")
     
-    # --- TAB OFICIAL ---
-    if df_oficial is not None:
-        with (tab2 if df_mep is not None else tab1):
-            st.header("💵 Resultados con Dólar Oficial")
-            
-            mejores_oficial = df_oficial[df_oficial['Viable']].head(5)
-            
-            if mejores_oficial.empty:
-                st.warning(
-                    f"⚠️ **No hay oportunidades rentables con dólar oficial** (${volumen_usd:,.2f} USD)\n\n"
-                    "Revisa los volúmenes mínimos en la tabla inferior."
-                )
-            else:
-                st.subheader("🏆 Top 5 Oportunidades")
-                for idx, row in mejores_oficial.iterrows():
-                    with st.expander(
-                        f"**{row['Exchange']}** - Ganancia: ${row['Ganancia ARS']:,.2f} ARS ({row['ROI (%)']:.2f}% ROI)", 
-                        expanded=idx==mejores_oficial.index[0]
-                    ):
-                        col1, col2, col3, col4 = st.columns(4)
-                        
-                        with col1:
-                            st.metric("Precio USDT", f"${row['Precio USDT']:,.2f}")
-                        with col2:
-                            st.metric("Ganancia ARS", f"${row['Ganancia ARS']:,.2f}")
-                        with col3:
-                            st.metric("Ganancia USD", f"${row['Ganancia USD']:.2f}")
-                        with col4:
-                            st.metric("ROI", f"{row['ROI (%)']:.2f}%")
-                        
-                        detalles = row['Detalles']
-                        st.markdown(f"""
-                        **Detalle de la Operación:**
-                        1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra:,.2f} = **${detalles['costo_inicial_ars']:,.2f} ARS**
-                        2. 🔄 **Transferir a USDT**: ${volumen_usd:,.2f} USDT - ${comision_usdt} USDT (comisión) = **{detalles['usdt_netos']:.2f} USDT**
-                        3. 💎 **Vender USDT**: {detalles['usdt_netos']:.2f} USDT × ${row['Precio USDT']:,.2f} = **${detalles['ingresos_brutos_ars']:,.2f} ARS**
-                        4. 💸 **Comisión exchange** ({comision_pct*100:.1f}%): **${detalles['comision_ars']:,.2f} ARS**
-                        5. ✅ **Ingresos netos**: **${detalles['ingresos_netos_ars']:,.2f} ARS**
-                        6. 📊 **Resultado final**: **${detalles['ganancia_ars']:,.2f} ARS** (${detalles['ganancia_usd']:.2f} USD)
-                        """)
-            
-            st.markdown("---")
-            
-            # Gráfico
-            st.subheader("📊 Gráfico de Rentabilidad")
-            df_plot_oficial = df_oficial.sort_values('Ganancia USD')
-            colors_oficial = ['green' if viable else 'red' for viable in df_plot_oficial['Viable']]
-            
-            fig_oficial = go.Figure()
-            fig_oficial.add_trace(go.Bar(
-                x=df_plot_oficial['Ganancia USD'],
-                y=df_plot_oficial['Exchange'],
-                orientation='h',
-                marker=dict(color=colors_oficial),
-                text=[f"${val:.2f}" for val in df_plot_oficial['Ganancia USD']],
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Ganancia: $%{x:.2f} USD<br>ROI: %{customdata:.2f}%<extra></extra>',
-                customdata=df_plot_oficial['ROI (%)']
-            ))
-            fig_oficial.add_vline(x=0, line_dash="dash", line_color="white", opacity=0.5)
-            fig_oficial.update_layout(
-                template='plotly_dark',
-                title=f'Ganancia con Dólar Oficial (Volumen: ${volumen_usd:,.2f} USD)',
-                xaxis_title='Ganancia (USD)',
-                yaxis_title='Exchange',
-                height=max(400, len(df_plot_oficial) * 30),
-                showlegend=False
-            )
-            st.plotly_chart(fig_oficial, use_container_width=True)
-            
-            # Tabla
-            st.subheader("📋 Tabla Completa")
-            df_display_oficial = df_oficial[['Exchange', 'Precio USDT', 'Spread vs Oficial (%)', 
-                                             'Ganancia ARS', 'Ganancia USD', 'ROI (%)', 
-                                             'Vol. Mínimo (USD)', 'Viable']].copy()
-            
-            def highlight_viable(row):
-                if row['Viable']:
-                    return ['background-color: rgba(0, 255, 0, 0.1)'] * len(row)
-                else:
-                    return ['background-color: rgba(255, 0, 0, 0.1)'] * len(row)
-            
-            st.dataframe(
-                df_display_oficial.style
-                    .apply(highlight_viable, axis=1)
-                    .format({
-                        'Precio USDT': '${:,.2f}',
-                        'Spread vs Oficial (%)': '{:.2f}%',
-                        'Ganancia ARS': '${:,.2f}',
-                        'Ganancia USD': '${:.2f}',
-                        'ROI (%)': '{:.2f}%',
-                        'Vol. Mínimo (USD)': '${:,.2f}'
-                    }),
-                use_container_width=True,
-                height=400
-            )
+    mejor_crypto = df_crypto[df_crypto['Viable']].iloc[0] if not df_crypto[df_crypto['Viable']].empty else None
     
-    # --- TAB MEP ---
-    if df_mep is not None:
-        with (tab3 if df_oficial is not None else tab1):
-            st.header("📈 Resultados con Dólar MEP")
-            
-            mejores_mep = df_mep[df_mep['Viable']].head(5)
-            
-            if mejores_mep.empty:
-                st.warning(
-                    f"⚠️ **No hay oportunidades rentables con dólar MEP** (${volumen_usd:,.2f} USD)\n\n"
-                    "Revisa los volúmenes mínimos en la tabla inferior."
-                )
-            else:
-                st.subheader("🏆 Top 5 Oportunidades")
-                for idx, row in mejores_mep.iterrows():
-                    with st.expander(
-                        f"**{row['Exchange']}** - Ganancia: ${row['Ganancia ARS']:,.2f} ARS ({row['ROI (%)']:.2f}% ROI)", 
-                        expanded=idx==mejores_mep.index[0]
-                    ):
-                        col1, col2, col3, col4 = st.columns(4)
-                        
-                        with col1:
-                            st.metric("Precio USDT", f"${row['Precio USDT']:,.2f}")
-                        with col2:
-                            st.metric("Ganancia ARS", f"${row['Ganancia ARS']:,.2f}")
-                        with col3:
-                            st.metric("Ganancia USD", f"${row['Ganancia USD']:.2f}")
-                        with col4:
-                            st.metric("ROI", f"{row['ROI (%)']:.2f}%")
-                        
-                        detalles = row['Detalles']
-                        st.markdown(f"""
-                        **Detalle de la Operación:**
-                        1. 📈 **Comprar USD MEP**: ${volumen_usd:,.2f} USD × ${mep_compra:,.2f} = **${detalles['costo_inicial_ars']:,.2f} ARS**
-                        2. 🔄 **Transferir a USDT**: ${volumen_usd:,.2f} USDT - ${comision_usdt} USDT (comisión) = **{detalles['usdt_netos']:.2f} USDT**
-                        3. 💎 **Vender USDT**: {detalles['usdt_netos']:.2f} USDT × ${row['Precio USDT']:,.2f} = **${detalles['ingresos_brutos_ars']:,.2f} ARS**
-                        4. 💸 **Comisión exchange** ({comision_pct*100:.1f}%): **${detalles['comision_ars']:,.2f} ARS**
-                        5. ✅ **Ingresos netos**: **${detalles['ingresos_netos_ars']:,.2f} ARS**
-                        6. 📊 **Resultado final**: **${detalles['ganancia_ars']:,.2f} ARS** (${detalles['ganancia_usd']:.2f} USD)
-                        """)
-            
-            st.markdown("---")
-            
-            # Gráfico
-            st.subheader("📊 Gráfico de Rentabilidad")
-            df_plot_mep = df_mep.sort_values('Ganancia USD')
-            colors_mep = ['green' if viable else 'red' for viable in df_plot_mep['Viable']]
-            
-            fig_mep = go.Figure()
-            fig_mep.add_trace(go.Bar(
-                x=df_plot_mep['Ganancia USD'],
-                y=df_plot_mep['Exchange'],
-                orientation='h',
-                marker=dict(color=colors_mep),
-                text=[f"${val:.2f}" for val in df_plot_mep['Ganancia USD']],
-                textposition='outside',
-                hovertemplate='<b>%{y}</b><br>Ganancia: $%{x:.2f} USD<br>ROI: %{customdata:.2f}%<extra></extra>',
-                customdata=df_plot_mep['ROI (%)']
-            ))
-            fig_mep.add_vline(x=0, line_dash="dash", line_color="white", opacity=0.5)
-            fig_mep.update_layout(
-                template='plotly_dark',
-                title=f'Ganancia con Dólar MEP (Volumen: ${volumen_usd:,.2f} USD)',
-                xaxis_title='Ganancia (USD)',
-                yaxis_title='Exchange',
-                height=max(400, len(df_plot_mep) * 30),
-                showlegend=False
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📈 Estrategia MEP")
+        st.info("Comprar Oficial → Vender MEP")
+        if resultado_mep and resultado_mep['viable']:
+            st.success(f"✅ RENTABLE")
+            st.metric("Ganancia", f"${resultado_mep['ganancia_usd']:.2f} USD", f"{resultado_mep['roi_porcentaje']:.2f}% ROI")
+            st.metric("En ARS", f"${resultado_mep['ganancia_ars']:,.2f}")
+            st.caption("Sin comisiones de crypto")
+        else:
+            st.error("❌ NO RENTABLE")
+            if resultado_mep:
+                st.metric("Pérdida", f"${resultado_mep['ganancia_usd']:.2f} USD")
+    
+    with col2:
+        st.subheader("💎 Mejor Estrategia Crypto")
+        st.info("Comprar Oficial → Vender USDT")
+        if mejor_crypto:
+            st.success(f"✅ {mejor_crypto['Exchange']}")
+            st.metric("Ganancia", f"${mejor_crypto['Ganancia USD']:.2f} USD", f"{mejor_crypto['ROI (%)']:.2f}% ROI")
+            st.metric("En ARS", f"${mejor_crypto['Ganancia ARS']:,.2f}")
+            st.caption(f"Vol. mínimo: ${mejor_crypto['Vol. Mínimo (USD)']:,.2f} USD")
+        else:
+            st.error("❌ NO HAY OPCIONES RENTABLES")
+            st.caption("Aumenta el volumen de operación")
+    
+    # Recomendación final
+    st.markdown("---")
+    
+    if resultado_mep and resultado_mep['viable'] and mejor_crypto:
+        if resultado_mep['ganancia_usd'] > mejor_crypto['Ganancia USD']:
+            diferencia = resultado_mep['ganancia_usd'] - mejor_crypto['Ganancia USD']
+            st.success(
+                f"""
+                ### 🎯 RECOMENDACIÓN: Estrategia MEP
+                
+                La estrategia **Oficial → MEP** es **${diferencia:.2f} USD más rentable** que el mejor exchange crypto ({mejor_crypto['Exchange']}).
+                
+                - ✅ Sin comisiones de transferencia
+                - ✅ Sin comisiones de exchange
+                - ✅ Operación más simple y rápida
+                """
             )
-            st.plotly_chart(fig_mep, use_container_width=True)
-            
-            # Tabla
-            st.subheader("📋 Tabla Completa")
-            df_display_mep = df_mep[['Exchange', 'Precio USDT', 'Spread vs MEP (%)', 
-                                     'Ganancia ARS', 'Ganancia USD', 'ROI (%)', 
-                                     'Vol. Mínimo (USD)', 'Viable']].copy()
-            
-            st.dataframe(
-                df_display_mep.style
-                    .apply(highlight_viable, axis=1)
-                    .format({
-                        'Precio USDT': '${:,.2f}',
-                        'Spread vs MEP (%)': '{:.2f}%',
-                        'Ganancia ARS': '${:,.2f}',
-                        'Ganancia USD': '${:.2f}',
-                        'ROI (%)': '{:.2f}%',
-                        'Vol. Mínimo (USD)': '${:,.2f}'
-                    }),
-                use_container_width=True,
-                height=400
+        else:
+            diferencia = mejor_crypto['Ganancia USD'] - resultado_mep['ganancia_usd']
+            st.success(
+                f"""
+                ### 🎯 RECOMENDACIÓN: Estrategia Crypto
+                
+                La estrategia **Oficial → {mejor_crypto['Exchange']}** es **${diferencia:.2f} USD más rentable** que vender en MEP.
+                
+                - Exchange: {mejor_crypto['Exchange']}
+                - Precio USDT: ${mejor_crypto['Precio USDT']:,.2f}
+                - Volumen mínimo: ${mejor_crypto['Vol. Mínimo (USD)']:,.2f} USD
+                """
             )
+    elif resultado_mep and resultado_mep['viable']:
+        st.success(
+            """
+            ### 🎯 RECOMENDACIÓN: Estrategia MEP
+            
+            La estrategia **Oficial → MEP** es rentable mientras que ningún exchange crypto lo es con el volumen actual.
+            """
+        )
+    elif mejor_crypto:
+        st.success(
+            f"""
+            ### 🎯 RECOMENDACIÓN: Estrategia Crypto
+            
+            La estrategia **Oficial → {mejor_crypto['Exchange']}** es rentable mientras que MEP no lo es actualmente.
+            """
+        )
+    else:
+        st.error(
+            """
+            ### ⚠️ NINGUNA ESTRATEGIA ES RENTABLE
+            
+            Ni la venta en MEP ni en exchanges crypto son rentables con el volumen actual.
+            
+            **Sugerencias:**
+            - Aumenta el volumen de operación
+            - Espera mejores condiciones de mercado
+            - Revisa los volúmenes mínimos en la tabla inferior
+            """
+        )
+    
+    st.markdown("---")
+    
+    # --- DETALLES DE CRYPTO EXCHANGES ---
+    st.header("💎 Detalle de Exchanges Crypto")
+    
+    mejores_crypto = df_crypto[df_crypto['Viable']].head(5)
+    
+    if not mejores_crypto.empty:
+        st.subheader("🏆 Top 5 Exchanges Rentables")
+        for idx, row in mejores_crypto.iterrows():
+            with st.expander(
+                f"**{row['Exchange']}** - Ganancia: ${row['Ganancia ARS']:,.2f} ARS ({row['ROI (%)']:.2f}% ROI)", 
+                expanded=idx==mejores_crypto.index[0]
+            ):
+                col1, col2, col3, col4 = st.columns(4)
+                
+                with col1:
+                    st.metric("Precio USDT", f"${row['Precio USDT']:,.2f}")
+                with col2:
+                    st.metric("Ganancia ARS", f"${row['Ganancia ARS']:,.2f}")
+                with col3:
+                    st.metric("Ganancia USD", f"${row['Ganancia USD']:.2f}")
+                with col4:
+                    st.metric("ROI", f"{row['ROI (%)']:.2f}%")
+                
+                detalles = row['Detalles']
+                st.markdown(f"""
+                **Detalle de la Operación:**
+                1. 💵 **Comprar USD oficiales**: ${volumen_usd:,.2f} USD × ${dolar_compra:,.2f} = **${detalles['costo_inicial_ars']:,.2f} ARS**
+                2. 🔄 **Transferir a USDT**: ${volumen_usd:,.2f} USDT - ${comision_usdt} USDT (comisión) = **{detalles['usdt_netos']:.2f} USDT**
+                3. 💎 **Vender USDT**: {detalles['usdt_netos']:.2f} USDT × ${row['Precio USDT']:,.2f} = **${detalles['ingresos_brutos_ars']:,.2f} ARS**
+                4. 💸 **Comisión exchange** ({comision_pct*100:.1f}%): **${detalles['comision_ars']:,.2f} ARS**
+                5. ✅ **Ingresos netos**: **${detalles['ingresos_netos_ars']:,.2f} ARS**
+                6. 📊 **Resultado final**: **${detalles['ganancia_ars']:,.2f} ARS** (${detalles['ganancia_usd']:.2f} USD)
+                """)
+    else:
+        st.warning(
+            f"⚠️ **No hay exchanges crypto rentables con el volumen actual (${volumen_usd:,.2f} USD)**\n\n"
+            "Revisa los volúmenes mínimos en la tabla inferior o considera la estrategia MEP."
+        )
+    
+    st.markdown("---")
+    
+    # Gráfico comparativo
+    st.subheader("📊 Gráfico de Rentabilidad por Exchange")
+    
+    df_plot_crypto = df_crypto.sort_values('Ganancia USD')
+    colors_crypto = ['green' if viable else 'red' for viable in df_plot_crypto['Viable']]
+    
+    fig_crypto = go.Figure()
+    
+    # Barra para MEP
+    if resultado_mep:
+        fig_crypto.add_trace(go.Scatter(
+            x=[resultado_mep['ganancia_usd']],
+            y=['MEP'],
+            mode='markers+text',
+            marker=dict(size=15, color='cyan', symbol='star'),
+            text=[f"MEP: ${resultado_mep['ganancia_usd']:.2f}"],
+            textposition='middle right',
+            name='Estrategia MEP',
+            hovertemplate='<b>MEP</b><br>Ganancia: $%{x:.2f} USD<extra></extra>'
+        ))
+    
+    # Barras para exchanges
+    fig_crypto.add_trace(go.Bar(
+        x=df_plot_crypto['Ganancia USD'],
+        y=df_plot_crypto['Exchange'],
+        orientation='h',
+        marker=dict(color=colors_crypto),
+        text=[f"${val:.2f}" for val in df_plot_crypto['Ganancia USD']],
+        textposition='outside',
+        name='Exchanges Crypto',
+        hovertemplate='<b>%{y}</b><br>Ganancia: $%{x:.2f} USD<br>ROI: %{customdata:.2f}%<extra></extra>',
+        customdata=df_plot_crypto['ROI (%)']
+    ))
+    
+    fig_crypto.add_vline(x=0, line_dash="dash", line_color="white", opacity=0.5)
+    
+    fig_crypto.update_layout(
+        template='plotly_dark',
+        title=f'Comparación: MEP vs Crypto Exchanges (Volumen: ${volumen_usd:,.2f} USD)',
+        xaxis_title='Ganancia (USD)',
+        yaxis_title='Opción',
+        height=max(500, len(df_plot_crypto) * 30 + 100),
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    
+    st.plotly_chart(fig_crypto, use_container_width=True)
+    
+    # Tabla completa
+    st.subheader("📋 Tabla Completa de Exchanges")
+    
+    df_display_crypto = df_crypto[['Exchange', 'Precio USDT', 'Spread vs Oficial (%)', 
+                                    'Ganancia ARS', 'Ganancia USD', 'ROI (%)', 
+                                    'Vol. Mínimo (USD)', 'Viable']].copy()
+    
+    def highlight_viable(row):
+        if row['Viable']:
+            return ['background-color: rgba(0, 255, 0, 0.1)'] * len(row)
+        else:
+            return ['background-color: rgba(255, 0, 0, 0.1)'] * len(row)
+    
+    st.dataframe(
+        df_display_crypto.style
+            .apply(highlight_viable, axis=1)
+            .format({
+                'Precio USDT': '${:,.2f}',
+                'Spread vs Oficial (%)': '{:.2f}%',
+                'Ganancia ARS': '${:,.2f}',
+                'Ganancia USD': '${:.2f}',
+                'ROI (%)': '{:.2f}%',
+                'Vol. Mínimo (USD)': '${:,.2f}'
+            }),
+        use_container_width=True,
+        height=400
+    )
     
     # --- INFORMACIÓN ADICIONAL ---
     st.markdown("---")
@@ -713,13 +667,17 @@ with st.spinner('Obteniendo cotizaciones...'):
     with col1:
         st.info(
             """
-            **Cómo funciona:**
-            1. Se compran dólares (Oficial o MEP)
-            2. Se convierten a USDT (1:1)
-            3. Se paga comisión de transferencia (${:.2f} USDT)
-            4. Se venden USDT en el exchange crypto
-            5. Se paga comisión del exchange ({:.1f}%)
-            6. La diferencia es la ganancia/pérdida
+            **Estrategia 1 - Oficial → Crypto:**
+            1. Comprar dólares oficiales
+            2. Convertir a USDT (1:1)
+            3. Pagar comisión de transferencia (${:.2f} USDT)
+            4. Vender USDT en exchange crypto
+            5. Pagar comisión del exchange ({:.1f}%)
+            
+            **Estrategia 2 - Oficial → MEP:**
+            1. Comprar dólares oficiales
+            2. Vender en el mercado MEP
+            3. Sin comisiones adicionales
             """.format(comision_usdt, comision_pct * 100)
         )
     
@@ -729,10 +687,10 @@ with st.spinner('Obteniendo cotizaciones...'):
             **⚠️ Consideraciones:**
             - Los precios fluctúan constantemente
             - Límites de compra diaria de dólares oficiales
-            - Verifica requisitos KYC de cada exchange
+            - Verifica requisitos KYC de exchanges
             - Esta es una simulación, no asesoramiento financiero
-            - Revisa el volumen mínimo para rentabilidad
             - **No puedes operar oficial y MEP simultáneamente**
+            - Considera el "Dólar Matrimonio" para maximizar oportunidades
             """
         )
     
@@ -740,68 +698,28 @@ with st.spinner('Obteniendo cotizaciones...'):
     st.markdown("---")
     st.header("📈 Estadísticas Generales")
     
-    if df_oficial is not None and df_mep is not None:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Exchanges Consultados", len(resultados_oficial))
-        
-        with col2:
-            viables_oficial = len(df_oficial[df_oficial['Viable']])
-            viables_mep = len(df_mep[df_mep['Viable']])
-            st.metric("Viables Oficial", viables_oficial)
-            st.metric("Viables MEP", viables_mep)
-        
-        with col3:
-            mejor_roi_oficial = df_oficial['ROI (%)'].max()
-            mejor_roi_mep = df_mep['ROI (%)'].max()
-            st.metric("Mejor ROI Oficial", f"{mejor_roi_oficial:.2f}%")
-            st.metric("Mejor ROI MEP", f"{mejor_roi_mep:.2f}%")
-        
-        with col4:
-            vol_min_oficial = df_oficial[df_oficial['Vol. Mínimo (USD)'] < float('inf')]['Vol. Mínimo (USD)'].mean()
-            vol_min_mep = df_mep[df_mep['Vol. Mínimo (USD)'] < float('inf')]['Vol. Mínimo (USD)'].mean()
-            
-            if pd.notna(vol_min_oficial):
-                st.metric("Vol. Mín. Oficial", f"${vol_min_oficial:.2f}")
-            if pd.notna(vol_min_mep):
-                st.metric("Vol. Mín. MEP", f"${vol_min_mep:.2f}")
+    col1, col2, col3, col4 = st.columns(4)
     
-    elif df_oficial is not None:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Exchanges Consultados", len(resultados_oficial))
-        with col2:
-            viables = len(df_oficial[df_oficial['Viable']])
-            st.metric("Oportunidades Viables", viables)
-        with col3:
-            mejor_roi = df_oficial['ROI (%)'].max()
-            st.metric("Mejor ROI", f"{mejor_roi:.2f}%")
-        with col4:
-            vol_min_promedio = df_oficial[df_oficial['Vol. Mínimo (USD)'] < float('inf')]['Vol. Mínimo (USD)'].mean()
-            if pd.notna(vol_min_promedio):
-                st.metric("Vol. Mín. Promedio", f"${vol_min_promedio:.2f}")
-            else:
-                st.metric("Vol. Mín. Promedio", "N/A")
+    with col1:
+        st.metric("Exchanges Consultados", len(resultados_crypto))
     
-    elif df_mep is not None:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Exchanges Consultados", len(resultados_mep))
-        with col2:
-            viables = len(df_mep[df_mep['Viable']])
-            st.metric("Oportunidades Viables", viables)
-        with col3:
-            mejor_roi = df_mep['ROI (%)'].max()
-            st.metric("Mejor ROI", f"{mejor_roi:.2f}%")
-        with col4:
-            vol_min_promedio = df_mep[df_mep['Vol. Mínimo (USD)'] < float('inf')]['Vol. Mínimo (USD)'].mean()
-            if pd.notna(vol_min_promedio):
-                st.metric("Vol. Mín. Promedio", f"${vol_min_promedio:.2f}")
-            else:
-                st.metric("Vol. Mín. Promedio", "N/A")
+    with col2:
+        viables_crypto = len(df_crypto[df_crypto['Viable']])
+        st.metric("Exchanges Rentables", viables_crypto)
+    
+    with col3:
+        if df_crypto['ROI (%)'].max() > 0:
+            mejor_roi_crypto = df_crypto['ROI (%)'].max()
+            st.metric("Mejor ROI Crypto", f"{mejor_roi_crypto:.2f}%")
+        if resultado_mep and resultado_mep['viable']:
+            st.metric("ROI MEP", f"{resultado_mep['roi_porcentaje']:.2f}%")
+    
+    with col4:
+        vol_min_crypto = df_crypto[df_crypto['Vol. Mínimo (USD)'] < float('inf')]['Vol. Mínimo (USD)'].mean()
+        if pd.notna(vol_min_crypto):
+            st.metric("Vol. Mín. Promedio", f"${vol_min_crypto:.2f}")
+        else:
+            st.metric("Vol. Mín. Promedio", "N/A")
 
 st.markdown("---")
 st.caption(f"Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
