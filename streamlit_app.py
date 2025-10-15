@@ -1,3 +1,6 @@
+
+Descargar
+
 import streamlit as st
 import pandas as pd
 import requests
@@ -48,9 +51,9 @@ EXCHANGES = [
 ]
 
 # --- CONSTANTES ---
-COMISION_PORCENTAJE = 0.01  # 1%
+COMISION_PORCENTAJE = 0.03  # 3%
 COMISION_ENVIO_USDT = 1  # 1 USDT
-VOLUMEN_MINIMO_DEFAULT = 1000  # USD por defecto
+VOLUMEN_MINIMO_DEFAULT = 100  # USD por defecto
 
 # --- CACHING Y CARGA DE DATOS ---
 @st.cache_data(ttl=60)  # Cache por 1 minuto
@@ -253,6 +256,34 @@ with st.sidebar:
     if st.button("🔄 Actualizar Datos", type="primary", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
+    
+    st.markdown("---")
+    
+    # Tutorial y enlaces
+    st.subheader("📚 Recursos")
+    
+    st.markdown("### 🎥 TUTORIAL DE USO")
+    st.markdown("[Ver tutorial en YouTube](https://www.youtube.com/@rulo_ok)")
+    st.caption("https://www.youtube.com/@rulo_ok")
+    
+    st.markdown("---")
+    
+    st.markdown("### 🎁 Referidos con Descuentos")
+    
+    st.markdown("**Binance** - Descuento en comisiones")
+    st.markdown("[Registrarse en Binance](https://www.binance.com/join?ref=41577123)")
+    st.caption("Código de referido: 41577123")
+    
+    st.markdown("**LB Finanzas** - 50% descuento por 3 meses")
+    st.markdown(
+        """
+        [Descargar LB Finanzas](https://letsbit.go.link?adj_t=1f7eknug&adj_adgroup=Landing_Applicacion)
+        
+        Código de invitación: **ID25896CF656**
+        
+        Ambos obtenemos 50% de descuento en comisiones por tres meses.
+        """
+    )
 
 # --- CUERPO PRINCIPAL ---
 st.title("💱 Arbitraje: Dólar Oficial → Crypto vs MEP")
@@ -730,5 +761,3 @@ with st.spinner('Obteniendo cotizaciones...'):
 
 st.markdown("---")
 st.caption(f"Última actualización: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-
-
